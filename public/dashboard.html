@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perception Engine — Anthropic Policy Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#faf9f5;--bg2:#f3f1eb;--card:#ffffff;--border:#e8e4dc;
+  --t1:#1a1a1a;--t2:#6b6560;--t3:#9b9590;
+  --pos:#2e7d32;--neg:#c62828;--neu:#5d4037;--mix:#e65100;
+  --accent:#4a5580;--accent2:#c8956c;
+  --serif:'Source Serif 4',Georgia,serif;
+  --sans:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --r:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);font-size:14px;line-height:1.5}
+
+/* ── Header ── */
+header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+header h1{font-family:var(--serif);font-size:20px;font-weight:600}
+header h1 span{color:var(--accent2);font-weight:400}
+.header-actions{display:flex;gap:8px;align-items:center}
+.header-actions button{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:6px 14px;font-family:var(--sans);font-size:12px;cursor:pointer;color:var(--t2);transition:all .15s}
+.header-actions button:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.header-actions button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.status{font-family:var(--mono);font-size:11px;color:var(--t3)}
+
+/* ── Nav ── */
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:0}
+nav button{background:none;border:none;padding:12px 20px;font-family:var(--sans);font-size:13px;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+nav button:hover{color:var(--t1)}
+nav button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+/* ── Layout ── */
+main{padding:24px;max-width:1400px;margin:0 auto}
+.grid{display:grid;gap:20px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.g4{grid-template-columns:1fr 1fr 1fr 1fr}
+@media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+.card h3{font-family:var(--serif);font-size:15px;margin-bottom:12px;color:var(--t2)}
+.card .big{font-size:32px;font-weight:700;font-family:var(--mono)}
+.card .label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);margin-bottom:4px}
+.card .sub{font-size:12px;color:var(--t3);margin-top:4px}
+
+/* ── Stat cards ── */
+.stat-card{text-align:center;padding:20px 16px}
+.stat-card .big.pos{color:var(--pos)}
+.stat-card .big.neg{color:var(--neg)}
+.stat-card .big.neu{color:var(--t2)}
+
+/* ── Sentiment badges ── */
+.sb{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;text-transform:uppercase}
+.sb.positive{background:#e8f5e9;color:var(--pos)}
+.sb.negative{background:#ffebee;color:var(--neg)}
+.sb.neutral{background:#efebe9;color:var(--neu)}
+.sb.mixed{background:#fff3e0;color:var(--mix)}
+
+/* ── Urgency badges ── */
+.ub{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;text-transform:uppercase}
+.ub.critical{background:#ffcdd2;color:#b71c1c}
+.ub.high{background:#ffe0b2;color:#e65100}
+.ub.medium{background:#fff9c4;color:#f57f17}
+.ub.low{background:#c8e6c9;color:#2e7d32}
+
+/* ── Platform badges ── */
+.pb{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;font-family:var(--mono)}
+.pb.twitter{background:#e8f4fd;color:#1a8cd8}
+.pb.reddit{background:#fff3e0;color:#ff4500}
+.pb.hackernews{background:#fff8e1;color:#ff6600}
+.pb.bluesky{background:#e3f2fd;color:#0085ff}
+.pb.news{background:#f3e5f5;color:#7b1fa2}
+
+/* ── Tables ── */
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);border-bottom:1px solid var(--border);background:var(--bg)}
+td{padding:8px 12px;border-bottom:1px solid #f5f3ed;font-size:13px;vertical-align:top}
+tr:hover td{background:#faf8f4}
+td a{color:var(--accent);text-decoration:none}
+td a:hover{text-decoration:underline}
+
+/* ── Alerts ── */
+.alert-row{display:flex;gap:12px;align-items:flex-start;padding:12px;border-bottom:1px solid #f5f3ed}
+.alert-row:last-child{border-bottom:none}
+.alert-row .alert-body{flex:1}
+.alert-row .alert-title{font-weight:600;font-size:13px}
+.alert-row .alert-desc{font-size:12px;color:var(--t2);margin-top:2px}
+.alert-row .alert-time{font-family:var(--mono);font-size:11px;color:var(--t3);white-space:nowrap}
+.alert-row .ack-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;color:var(--t3)}
+.alert-row .ack-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ── Post feed ── */
+.post-card{padding:14px;border-bottom:1px solid #f5f3ed}
+.post-card:last-child{border-bottom:none}
+.post-meta{display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.post-author{font-weight:600;font-size:12px;color:var(--accent)}
+.post-content{font-size:13px;line-height:1.5;color:var(--t1);max-height:80px;overflow:hidden}
+.post-stats{display:flex;gap:12px;margin-top:6px;font-family:var(--mono);font-size:11px;color:var(--t3)}
+
+/* ── Narrative tags ── */
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;background:var(--bg2);color:var(--t2);margin:3px 3px 3px 0;border:1px solid var(--border)}
+.tag .count{font-weight:600;color:var(--accent)}
+
+/* ── Chart containers ── */
+.chart-wrap{position:relative;height:280px}
+.chart-wrap canvas{width:100%!important;height:100%!important}
+
+/* ── Screen management ── */
+.screen{display:none}
+.screen.active{display:block}
+
+/* ── Filters bar ── */
+.filters{display:flex;gap:8px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
+.filters select,.filters input{padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:12px;background:var(--card)}
+.filters input{width:200px}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:60px 20px;color:var(--t3)}
+.empty h3{font-family:var(--serif);font-size:20px;margin-bottom:8px;color:var(--t2)}
+
+/* ── Loading ── */
+.loading{text-align:center;padding:40px;color:var(--t3)}
+.spinner{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Perception Engine <span>— Policy Intelligence</span></h1>
+    <div class="status" id="statusBar">Connecting...</div>
+  </div>
+  <div class="header-actions">
+    <button onclick="collectNow()">Collect Now</button>
+    <button onclick="analyzeNow()">Analyze</button>
+    <button class="primary" onclick="generateReport()">Generate Report</button>
+  </div>
+</header>
+
+<nav id="nav">
+  <button class="active" data-screen="overview">Overview</button>
+  <button data-screen="sentiment">Sentiment</button>
+  <button data-screen="posts">Posts Feed</button>
+  <button data-screen="alerts">Alerts</button>
+  <button data-screen="narratives">Narratives</button>
+  <button data-screen="reports">Reports</button>
+</nav>
+
+<main>
+
+<!-- ═══════ OVERVIEW SCREEN ═══════ -->
+<div class="screen active" id="screen-overview">
+  <div class="grid g4" id="statCards" style="margin-bottom:20px">
+    <div class="card stat-card"><div class="label">Total Posts</div><div class="big" id="s-total">—</div><div class="sub" id="s-today"></div></div>
+    <div class="card stat-card"><div class="label">Anthropic Mentions</div><div class="big" id="s-anthropic">—</div></div>
+    <div class="card stat-card"><div class="label">Avg Sentiment (24h)</div><div class="big" id="s-sentiment">—</div></div>
+    <div class="card stat-card"><div class="label">Unresolved Alerts</div><div class="big" id="s-alerts">—</div></div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>Sentiment Trend (24h)</h3>
+      <div class="chart-wrap"><canvas id="overviewTrendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Sentiment Distribution</h3>
+      <div class="chart-wrap"><canvas id="overviewDistChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:20px">
+    <div class="card">
+      <h3>Recent Alerts</h3>
+      <div id="overviewAlerts"></div>
+    </div>
+    <div class="card">
+      <h3>Trending Phrases</h3>
+      <div id="overviewPhrases"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SENTIMENT SCREEN ═══════ -->
+<div class="screen" id="screen-sentiment">
+  <div class="filters">
+    <select id="sentHours" onchange="loadSentiment()">
+      <option value="6">Last 6 hours</option>
+      <option value="24" selected>Last 24 hours</option>
+      <option value="72">Last 3 days</option>
+      <option value="168">Last 7 days</option>
+    </select>
+    <select id="sentPlatform" onchange="loadSentiment()">
+      <option value="">All platforms</option>
+      <option value="twitter">Twitter/X</option>
+      <option value="reddit">Reddit</option>
+      <option value="hackernews">Hacker News</option>
+      <option value="bluesky">Bluesky</option>
+      <option value="news">News</option>
+    </select>
+  </div>
+  <div class="card" style="margin-bottom:20px">
+    <h3>Sentiment Over Time</h3>
+    <div class="chart-wrap" style="height:350px"><canvas id="sentTrendChart"></canvas></div>
+  </div>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Distribution</h3>
+      <div class="chart-wrap"><canvas id="sentDistChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>By Platform</h3>
+      <div class="chart-wrap"><canvas id="sentPlatformChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ POSTS SCREEN ═══════ -->
+<div class="screen" id="screen-posts">
+  <div class="filters">
+    <input type="text" id="postSearch" placeholder="Search posts..." onkeyup="if(event.key==='Enter')loadPosts()">
+    <select id="postPlatform" onchange="loadPosts()">
+      <option value="">All platforms</option>
+      <option value="twitter">Twitter/X</option>
+      <option value="reddit">Reddit</option>
+      <option value="hackernews">Hacker News</option>
+      <option value="bluesky">Bluesky</option>
+      <option value="news">News</option>
+    </select>
+    <select id="postSentiment" onchange="loadPosts()">
+      <option value="">All sentiment</option>
+      <option value="positive">Positive</option>
+      <option value="negative">Negative</option>
+      <option value="neutral">Neutral</option>
+      <option value="mixed">Mixed</option>
+    </select>
+    <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:4px">
+      <input type="checkbox" id="postAnthropic" onchange="loadPosts()"> Anthropic only
+    </label>
+  </div>
+  <div class="card" id="postsFeed">
+    <div class="loading"><div class="spinner"></div>Loading posts...</div>
+  </div>
+  <div style="text-align:center;padding:16px">
+    <button onclick="loadMorePosts()" id="loadMoreBtn" style="display:none;padding:8px 20px;border:1px solid var(--border);border-radius:var(--r);background:var(--card);cursor:pointer;font-size:13px">Load More</button>
+  </div>
+</div>
+
+<!-- ═══════ ALERTS SCREEN ═══════ -->
+<div class="screen" id="screen-alerts">
+  <div class="card" id="alertsFeed">
+    <div class="loading"><div class="spinner"></div>Loading alerts...</div>
+  </div>
+</div>
+
+<!-- ═══════ NARRATIVES SCREEN ═══════ -->
+<div class="screen" id="screen-narratives">
+  <div class="filters">
+    <select id="narrHours" onchange="loadNarratives()">
+      <option value="12">Last 12 hours</option>
+      <option value="24" selected>Last 24 hours</option>
+      <option value="72">Last 3 days</option>
+      <option value="168">Last 7 days</option>
+    </select>
+  </div>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Top Phrases</h3>
+      <div id="narrPhrases"></div>
+    </div>
+    <div class="card">
+      <h3>Topic Distribution</h3>
+      <div class="chart-wrap"><canvas id="narrTopicChart"></canvas></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:20px">
+    <h3>Policy Areas</h3>
+    <div class="chart-wrap"><canvas id="narrPolicyChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══════ REPORTS SCREEN ═══════ -->
+<div class="screen" id="screen-reports">
+  <div class="card" id="reportsList">
+    <div class="loading"><div class="spinner"></div>Loading reports...</div>
+  </div>
+</div>
+
+</main>
+
+<script>
+const API = '';
+let charts = {};
+let postsOffset = 0;
+
+// ═══════ Navigation ═══════
+document.querySelectorAll('#nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('screen-' + btn.dataset.screen).classList.add('active');
+    loadScreen(btn.dataset.screen);
+  });
+});
+
+function loadScreen(name) {
+  switch(name) {
+    case 'overview': loadOverview(); break;
+    case 'sentiment': loadSentiment(); break;
+    case 'posts': postsOffset = 0; loadPosts(); break;
+    case 'alerts': loadAlerts(); break;
+    case 'narratives': loadNarratives(); break;
+    case 'reports': loadReports(); break;
+  }
+}
+
+// ═══════ Data Loading ═══════
+async function api(path) {
+  const res = await fetch(API + path);
+  return res.json();
+}
+
+async function loadOverview() {
+  try {
+    const [stats, sent, alertData, narr] = await Promise.all([
+      api('/api/stats'),
+      api('/api/sentiment?hours=24'),
+      api('/api/alerts?unacked=true'),
+      api('/api/narratives?hours=24')
+    ]);
+
+    // Stat cards
+    document.getElementById('s-total').textContent = stats.totalPosts.toLocaleString();
+    document.getElementById('s-today').textContent = `${stats.todayPosts} today`;
+    document.getElementById('s-anthropic').textContent = stats.anthropicMentions.toLocaleString();
+
+    const sentEl = document.getElementById('s-sentiment');
+    sentEl.textContent = stats.avgSentiment24h != null ? stats.avgSentiment24h.toFixed(3) : '—';
+    sentEl.className = 'big ' + (stats.avgSentiment24h > 0.1 ? 'pos' : stats.avgSentiment24h < -0.1 ? 'neg' : 'neu');
+
+    const alertEl = document.getElementById('s-alerts');
+    alertEl.textContent = stats.unacknowledgedAlerts;
+    alertEl.className = 'big ' + (stats.unacknowledgedAlerts > 5 ? 'neg' : stats.unacknowledgedAlerts > 0 ? 'mix' : 'pos');
+
+    document.getElementById('statusBar').textContent =
+      `Last updated: ${new Date(stats.lastUpdated).toLocaleTimeString()} | ${stats.analyzedPosts} analyzed`;
+
+    // Trend chart
+    renderLineChart('overviewTrendChart', sent.trend, 'avg_sentiment', 'count');
+
+    // Distribution chart
+    renderDoughnut('overviewDistChart', sent.distribution);
+
+    // Alerts preview
+    renderAlertsList('overviewAlerts', alertData.slice(0, 5));
+
+    // Phrases
+    renderPhrases('overviewPhrases', narr.phrases?.slice(0, 15) || []);
+  } catch (err) {
+    console.error('Overview load error:', err);
+  }
+}
+
+async function loadSentiment() {
+  const hours = document.getElementById('sentHours').value;
+  const platform = document.getElementById('sentPlatform').value;
+  let url = `/api/sentiment?hours=${hours}`;
+  if (platform) url += `&platform=${platform}`;
+
+  const data = await api(url);
+  renderLineChart('sentTrendChart', data.trend, 'avg_sentiment', 'count');
+  renderDoughnut('sentDistChart', data.distribution);
+
+  // Platform breakdown
+  const platformData = await api(`/api/sentiment?hours=${hours}`);
+  // We'll use the trend data grouped
+}
+
+async function loadPosts() {
+  postsOffset = 0;
+  const platform = document.getElementById('postPlatform').value;
+  const sentiment = document.getElementById('postSentiment').value;
+  const anthropic = document.getElementById('postAnthropic').checked;
+  const q = document.getElementById('postSearch').value;
+
+  let url = `/api/posts?limit=30&offset=0`;
+  if (platform) url += `&platform=${platform}`;
+  if (sentiment) url += `&sentiment=${sentiment}`;
+  if (anthropic) url += `&anthropic=true`;
+  if (q) url += `&q=${encodeURIComponent(q)}`;
+
+  const data = await api(url);
+  renderPosts('postsFeed', data.posts);
+  postsOffset = 30;
+
+  const btn = document.getElementById('loadMoreBtn');
+  btn.style.display = data.total > 30 ? 'inline-block' : 'none';
+}
+
+async function loadMorePosts() {
+  const platform = document.getElementById('postPlatform').value;
+  const sentiment = document.getElementById('postSentiment').value;
+  const anthropic = document.getElementById('postAnthropic').checked;
+  const q = document.getElementById('postSearch').value;
+
+  let url = `/api/posts?limit=30&offset=${postsOffset}`;
+  if (platform) url += `&platform=${platform}`;
+  if (sentiment) url += `&sentiment=${sentiment}`;
+  if (anthropic) url += `&anthropic=true`;
+  if (q) url += `&q=${encodeURIComponent(q)}`;
+
+  const data = await api(url);
+  appendPosts('postsFeed', data.posts);
+  postsOffset += 30;
+
+  if (postsOffset >= data.total) document.getElementById('loadMoreBtn').style.display = 'none';
+}
+
+async function loadAlerts() {
+  const data = await api('/api/alerts?limit=100');
+  renderAlertsFull('alertsFeed', data);
+}
+
+async function loadNarratives() {
+  const hours = document.getElementById('narrHours').value;
+  const data = await api(`/api/narratives?hours=${hours}`);
+  renderPhrases('narrPhrases', data.phrases || []);
+  renderBarChart('narrTopicChart', data.topics || [], 'Topics');
+  renderBarChart('narrPolicyChart', data.policyAreas || [], 'Policy Areas');
+}
+
+async function loadReports() {
+  const data = await api('/api/reports');
+  renderReportsList('reportsList', data);
+}
+
+// ═══════ Chart Renderers ═══════
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function renderLineChart(canvasId, trend, yKey, y2Key) {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx || !trend?.length) return;
+
+  charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: trend.map(t => t.hour?.split(' ')[1] || t.hour),
+      datasets: [
+        {
+          label: 'Sentiment',
+          data: trend.map(t => t[yKey]),
+          borderColor: '#4a5580',
+          backgroundColor: 'rgba(74,85,128,0.1)',
+          fill: true,
+          tension: 0.3,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Volume',
+          data: trend.map(t => t[y2Key]),
+          borderColor: '#c8956c',
+          borderDash: [5, 5],
+          tension: 0.3,
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { font: { family: 'Inter', size: 11 } } } },
+      scales: {
+        y: { position: 'left', min: -1, max: 1, title: { display: true, text: 'Sentiment', font: { family: 'Inter', size: 11 } } },
+        y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Posts', font: { family: 'Inter', size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderDoughnut(canvasId, distribution) {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx || !distribution?.length) return;
+
+  const colors = { positive: '#2e7d32', negative: '#c62828', neutral: '#5d4037', mixed: '#e65100' };
+
+  charts[canvasId] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: distribution.map(d => d.sentiment_label),
+      datasets: [{
+        data: distribution.map(d => d.count),
+        backgroundColor: distribution.map(d => colors[d.sentiment_label] || '#999')
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 11 }, padding: 16 } }
+      }
+    }
+  });
+}
+
+function renderBarChart(canvasId, items, label) {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx || !items?.length) return;
+
+  charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: items.map(i => i.name || i.topic || i.area),
+      datasets: [{
+        label: label,
+        data: items.map(i => i.count),
+        backgroundColor: '#4a5580'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } }
+    }
+  });
+}
+
+// ═══════ DOM Renderers ═══════
+function renderAlertsList(containerId, alertsList) {
+  const el = document.getElementById(containerId);
+  if (!alertsList?.length) {
+    el.innerHTML = '<div class="empty"><h3>No alerts</h3><p>All clear for now.</p></div>';
+    return;
+  }
+
+  el.innerHTML = alertsList.map(a => `
+    <div class="alert-row">
+      <span class="ub ${a.urgency}">${a.urgency}</span>
+      <div class="alert-body">
+        <div class="alert-title">${esc(a.title)}</div>
+        <div class="alert-desc">${esc(a.description || '')}</div>
+      </div>
+      <span class="alert-time">${timeAgo(a.created_at)}</span>
+    </div>
+  `).join('');
+}
+
+function renderAlertsFull(containerId, alertsList) {
+  const el = document.getElementById(containerId);
+  if (!alertsList?.length) {
+    el.innerHTML = '<div class="empty"><h3>No alerts</h3><p>Start collecting data to generate alerts.</p></div>';
+    return;
+  }
+
+  el.innerHTML = alertsList.map(a => `
+    <div class="alert-row">
+      <span class="ub ${a.urgency}">${a.urgency}</span>
+      <div class="alert-body">
+        <div class="alert-title">${esc(a.title)}</div>
+        <div class="alert-desc">${esc(a.description || '')}</div>
+      </div>
+      <span class="alert-time">${timeAgo(a.created_at)}</span>
+      ${!a.acknowledged ? `<button class="ack-btn" onclick="ackAlert(${a.id})">Ack</button>` : '<span style="font-size:11px;color:var(--pos)">✓</span>'}
+    </div>
+  `).join('');
+}
+
+function renderPosts(containerId, posts) {
+  const el = document.getElementById(containerId);
+  if (!posts?.length) {
+    el.innerHTML = '<div class="empty"><h3>No posts</h3><p>Collect data to see posts here.</p></div>';
+    return;
+  }
+  el.innerHTML = posts.map(postHTML).join('');
+}
+
+function appendPosts(containerId, posts) {
+  const el = document.getElementById(containerId);
+  el.innerHTML += posts.map(postHTML).join('');
+}
+
+function postHTML(p) {
+  const snippet = (p.content || '').substring(0, 200) + ((p.content || '').length > 200 ? '...' : '');
+  return `
+    <div class="post-card">
+      <div class="post-meta">
+        <span class="pb ${p.platform}">${p.platform}</span>
+        <span class="post-author">@${esc(p.author || 'unknown')}</span>
+        <span class="sb ${p.sentiment_label || 'neutral'}">${p.sentiment_label || 'unanalyzed'}</span>
+        ${p.mentions_anthropic ? '<span class="sb" style="background:#e8eaf6;color:#4a5580">Anthropic</span>' : ''}
+        <span style="font-family:var(--mono);font-size:11px;color:var(--t3)">${timeAgo(p.created_at)}</span>
+      </div>
+      <div class="post-content">${esc(snippet)}</div>
+      <div class="post-stats">
+        ${p.likes ? `♥ ${p.likes}` : ''}
+        ${p.reposts ? `↻ ${p.reposts}` : ''}
+        ${p.replies ? `💬 ${p.replies}` : ''}
+        ${p.score ? `▲ ${p.score}` : ''}
+        ${p.url ? `<a href="${p.url}" target="_blank">view →</a>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderPhrases(containerId, phrases) {
+  const el = document.getElementById(containerId);
+  if (!phrases?.length) {
+    el.innerHTML = '<div style="color:var(--t3);padding:20px;text-align:center">No trending phrases yet.</div>';
+    return;
+  }
+  el.innerHTML = phrases.map(p =>
+    `<span class="tag">${esc(p.name || p.phrase)} <span class="count">${p.count}</span></span>`
+  ).join('');
+}
+
+function renderReportsList(containerId, reportsList) {
+  const el = document.getElementById(containerId);
+  if (!reportsList?.length) {
+    el.innerHTML = '<div class="empty"><h3>No reports</h3><p>Click "Generate Report" to create one.</p></div>';
+    return;
+  }
+  el.innerHTML = `<table>
+    <tr><th>Date</th><th>Type</th><th>Title</th><th>Summary</th><th></th></tr>
+    ${reportsList.map(r => `
+      <tr>
+        <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${new Date(r.created_at).toLocaleString()}</td>
+        <td><span class="sb neutral">${r.type}</span></td>
+        <td style="font-weight:600">${esc(r.title || '')}</td>
+        <td style="font-size:12px;color:var(--t2);max-width:400px">${esc((r.summary || '').substring(0, 150))}...</td>
+        <td><a href="/api/reports/${r.id}/html" target="_blank">View HTML →</a></td>
+      </tr>
+    `).join('')}
+  </table>`;
+}
+
+// ═══════ Actions ═══════
+async function collectNow() {
+  document.getElementById('statusBar').textContent = 'Collecting...';
+  try {
+    const res = await fetch(API + '/api/collect', { method: 'POST' });
+    const data = await res.json();
+    document.getElementById('statusBar').textContent = `Collected ${data.totalCollected} items in ${data.elapsed}s`;
+    loadOverview();
+  } catch (err) {
+    document.getElementById('statusBar').textContent = 'Collection error: ' + err.message;
+  }
+}
+
+async function analyzeNow() {
+  document.getElementById('statusBar').textContent = 'Analyzing...';
+  try {
+    const res = await fetch(API + '/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const data = await res.json();
+    document.getElementById('statusBar').textContent = `Analyzed ${data.processed} posts, ${data.alerts} new alerts`;
+    loadOverview();
+  } catch (err) {
+    document.getElementById('statusBar').textContent = 'Analysis error: ' + err.message;
+  }
+}
+
+async function generateReport() {
+  document.getElementById('statusBar').textContent = 'Generating report...';
+  try {
+    const res = await fetch(API + '/api/reports/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'daily' })
+    });
+    const data = await res.json();
+    document.getElementById('statusBar').textContent = `Report generated: ${data.title}`;
+  } catch (err) {
+    document.getElementById('statusBar').textContent = 'Report error: ' + err.message;
+  }
+}
+
+async function ackAlert(id) {
+  await fetch(API + `/api/alerts/${id}/acknowledge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ by: 'user' })
+  });
+  loadAlerts();
+  loadOverview();
+}
+
+// ═══════ Utilities ═══════
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+// ═══════ Init ═══════
+loadOverview();
+
+// Auto-refresh every 5 minutes
+setInterval(() => {
+  const active = document.querySelector('#nav button.active');
+  if (active) loadScreen(active.dataset.screen);
+}, 300000);
+</script>
+</body>
+</html>
