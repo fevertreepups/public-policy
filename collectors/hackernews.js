@@ -3,7 +3,7 @@
  * https://github.com/HackerNewsAPI/HN-API
  */
 
-const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
+// Uses Node 18+ built-in fetch
 
 const HN_BASE = 'https://hn.algolia.com/api/v1';
 
