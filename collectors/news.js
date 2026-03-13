@@ -4,7 +4,7 @@
  */
 
 const RSSParser = require('rss-parser');
-const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
+// Uses Node 18+ built-in fetch
 
 const parser = new RSSParser({
   timeout: 10000,
